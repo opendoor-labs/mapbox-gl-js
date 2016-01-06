@@ -14,14 +14,13 @@ function StyleDeclaration(reference, value) {
     // immutable representation of value. used for comparison
     this.json = JSON.stringify(this.value);
 
-    var parsedValue = this.type === 'color' ? parseColor(this.value) : value;
-    if (reference.function === 'interpolated') {
-        this.calculate = createStyleFunction(reference, parsedValue);
-    } else {
-        this.calculate = createStyleFunction(reference, parsedValue);
-        if (reference.transition) {
-            this.calculate = transitioned(this.calculate);
-        }
+    var parsedValue = this.type === 'color' ? parseColor(value) : value;
+    this.calculate = createStyleFunction(reference, parsedValue);
+    this.isFeatureConstant = this.calculate.isFeatureConstant;
+    this.isGlobalConstant = this.calculate.isGlobalConstant;
+
+    if (reference.function === 'piecewise-constant' && reference.transition) {
+        this.calculate = transitioned(this.calculate);
     }
 }
 
