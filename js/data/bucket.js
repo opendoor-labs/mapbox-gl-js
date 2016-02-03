@@ -68,7 +68,7 @@ function Bucket(options) {
     this.overscaling = options.overscaling;
     this.layer = options.layer;
 
-    this.layers = [this.layer.id];
+    this.layerIDs = [this.layer.id];
     this.type = this.layer.type;
     this.features = [];
     this.id = this.layer.id;
