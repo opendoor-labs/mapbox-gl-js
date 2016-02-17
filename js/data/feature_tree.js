@@ -49,8 +49,6 @@ FeatureTree.prototype.query = function(args, styleLayersByID) {
     if (this.toBeInserted.length) this._load();
 
     var params = args.params || {},
-        x = args.x,
-        y = args.y,
         pixelsToTileUnits = EXTENT / args.tileSize / args.scale,
         result = [];
 
@@ -73,24 +71,11 @@ FeatureTree.prototype.query = function(args, styleLayersByID) {
         additionalRadius = Math.max(additionalRadius, styleLayerDistance * pixelsToTileUnits);
     }
 
-    var bounds, symbolQueryBox, queryPolygon;
-    if (x !== undefined && y !== undefined) {
-        // a point query
-        bounds = [x - additionalRadius, y - additionalRadius, x + additionalRadius, y + additionalRadius];
-        symbolQueryBox = new CollisionBox(new Point(x, y), 0, 0, 0, 0, args.scale, null);
-        queryPolygon = [new Point(x, y)];
-    } else {
-        // a rectangle query
-        bounds = [ args.minX, args.minY, args.maxX, args.maxY ];
-        symbolQueryBox = new CollisionBox(new Point(args.minX, args.minY), 0, 0, args.maxX - args.minX, args.maxY - args.minY, args.scale, null);
-        queryPolygon = [
-            new Point(args.minX, args.minY),
-            new Point(args.maxX, args.minY),
-            new Point(args.maxX, args.maxY),
-            new Point(args.minX, args.maxY),
-            new Point(args.minX, args.minY)
-        ];
-    }
+    var bounds = [args.minX - additionalRadius, args.minY - additionalRadius, args.maxX + additionalRadius, args.maxY + additionalRadius];
+    var symbolQueryBox = new CollisionBox(new Point(args.minX, args.minY), 0, 0, args.maxX - args.minX, args.maxY - args.minY, args.scale, null);
+    var queryPolygon = args.queryGeometry.map(function(p) {
+        return new Point(p.x, p.y);
+    });
 
     var matching = this.rtree.search(bounds).concat(this.collisionTile.getFeaturesAt(symbolQueryBox, args.scale));
 
@@ -199,6 +184,7 @@ function polygonIntersectsBufferedMultiPoint(polygon, rings, radius) {
             if (pointIntersectsBufferedLine(point, polygon, radius)) return true;
         }
     }
+    return false;
 }
 
 function polygonIntersectsMultiPolygon(polygon, multiPolygon) {
