@@ -203,14 +203,14 @@ WorkerTile.prototype.parse = function(data, layers, actor, callback, rawTileData
         }
 
         var featureTree = tile.featureTree.serialize();
-        featureTree.data.rawTileData = rawTileData;
 
         buckets = filterEmptyBuckets(buckets);
 
         callback(null, {
             buckets: buckets.map(function(bucket) { return bucket.serialize(); }),
             bucketStats: stats, // TODO put this in a separate message?
-            featureTree: featureTree.data
+            featureTree: featureTree.data,
+            rawTileData: rawTileData
         }, getTransferables(buckets).concat(featureTree.transferables.concat(rawTileData)));
     }
 };
