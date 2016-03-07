@@ -80,6 +80,7 @@ function Bucket(options) {
     // TODO make this call more efficient or unnecessary
     this.createStyleLayers(options.style);
     this.attributes = createAttributes(this);
+    this.attributeMap = createAttributeMap(this);
 
     if (options.elementGroups) {
         this.elementGroups = options.elementGroups;
@@ -209,18 +210,8 @@ Bucket.prototype.setAttribPointers = function(shaderName, gl, shader, offset, la
     }
 
     // Set enabled attributes
-    var enabledAttributes = this.attributes[shaderName].enabled.filter(function(attribute) {
-        return attribute.isLayerConstant !== false || attribute.layerId === layer.id;
-    });
     var vertexBuffer = this.buffers[this.getBufferName(shaderName, 'vertex')];
-    vertexBuffer.setAttribPointers(
-        gl,
-        shader,
-        offset,
-        util.mapObjectKV(enabledAttributes, function(attribute) {
-            return [attribute.name, attribute.shaderName];
-        })
-    );
+    vertexBuffer.setAttribPointers(gl, shader, offset, this.attributeMap[shaderName][layer.id]);
 };
 
 Bucket.prototype.bindBuffers = function(shaderInterfaceName, gl, options) {
@@ -446,4 +437,24 @@ function isAttributeDisabled(bucket, attribute, layer) {
     } else {
         return !!attribute.isDisabled.call(bucket, layer);
     }
+}
+
+function createAttributeMap(bucket) {
+    var attributeMap = {};
+
+    for (var shaderName in bucket.shaderInterfaces) {
+        attributeMap[shaderName] = {};
+        for (var i = 0; i < bucket.childLayers.length; i++) {
+            var layer = bucket.childLayers[i];
+            attributeMap[shaderName][layer.id] = {};
+            for (var j = 0; j < bucket.attributes[shaderName].enabled.length; j++) {
+                var attribute = bucket.attributes[shaderName].enabled[j];
+                if (attribute.isLayerConstant !== false || attribute.layerId === layer.id) {
+                    attributeMap[shaderName][layer.id][attribute.name] = attribute.shaderName;
+                }
+            }
+        }
+    }
+
+    return attributeMap;
 }
