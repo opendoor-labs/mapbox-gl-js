@@ -1,0 +1,235 @@
+---
+layout: example
+category: example
+title: "Filter featuresIn by input"
+description: "Move the map to query viewable features in a vector tile layer and filter by typing in an input"
+---
+<style>
+.map-overlay {
+    position: absolute;
+    width: 25%;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    padding: 10px;
+}
+
+.map-overlay-inner {
+    font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+    background-color: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+    border-radius: 3px;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.map-overlay-inner fieldset {
+    display: none;
+    background: #ddd;
+    border: none;
+    padding: 10px;
+    margin: 0;
+}
+
+.map-overlay-inner input {
+    display: block;
+    border: none;
+    width: 100%;
+    border-radius: 3px;
+    padding: 10px;
+    margin: 0;
+}
+
+.map-overlay-inner .listing {
+    overflow: auto;
+    max-height: 100%;
+}
+
+.map-overlay-inner .listing > * {
+    display: block;
+    padding: 5px 10px;
+    margin: 0;
+}
+
+.map-overlay-inner .listing a {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    color: #404;
+    text-decoration: none;
+}
+
+.map-overlay-inner .listing a:last-child {
+    border: none;
+}
+
+.map-overlay-inner .listing a:hover {
+    background: #f0f0f0;
+}
+</style>
+
+<div id='map'></div>
+
+<div class='map-overlay'>
+    <div class='map-overlay-inner'>
+        <fieldset>
+            <input id='feature-filter' type='text' placeholder='Filter results by name' />
+        </fieldset>
+        <div id='feature-listing' class='listing'></div>
+    </div>
+</div>
+
+<script>
+var map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v8',
+    center: [-98, 38.88],
+    maxZoom: 5,
+    minZoom: 1,
+    zoom: 3
+});
+
+// Holds visible airport features for filtering
+var airports = [];
+
+// Create a popup, but don't add it to the map yet.
+var popup = new mapboxgl.Popup({
+    closeButton: false
+});
+
+var filter = document.getElementById('feature-filter');
+var listing = document.getElementById('feature-listing');
+
+function renderFeatures(features) {
+    // Clear any existing listings
+    listing.innerHTML = '';
+    if (features.length) {
+        features.forEach(function(feature) {
+            var prop = feature.properties;
+            var item = document.createElement('a');
+            item.href = prop.wikipedia;
+            item.target = '_blank';
+            item.textContent = prop.name + ' (' + prop.abbrev + ')';
+            item.addEventListener('mouseover', function() {
+                // Highlight corresponding feature on the map
+                popup.setLngLat(feature.geometry.coordinates)
+                    .setText(feature.properties.name + ' (' + feature.properties.abbrev + ')')
+                    .addTo(map);
+            });
+            listing.appendChild(item);
+        });
+
+        // Show the filter input
+        filter.parentNode.style.display = 'block';
+    } else {
+        var empty = document.createElement('p');
+        empty.textContent = 'Drag the map to populate results';
+        listing.appendChild(empty);
+
+        // Hide the filter input
+        filter.parentNode.style.display = 'none';
+    }
+}
+
+function normalize(string) {
+    return string.trim().toLowerCase();
+}
+
+map.on('load', function() {
+
+    // Add our vector tile source: World wide
+    // airports provided by Natural Earth
+    map.addSource('airports', {
+        "type": "vector",
+        "url": "mapbox://mapbox.04w69w5j"
+    });
+
+    // Style the map when a moveend event occurs
+    map.addLayer({
+        "id": "airport",
+        "interactive": true,
+        "source": "airports",
+        "source-layer": "ne_10m_airports",
+        "type": "symbol",
+        "layout": {
+            "icon-image": "airport-15",
+            "icon-padding": 0
+        }
+    });
+
+    map.addLayer({
+        "id": "airport-filtered",
+        "source": "airports",
+        "source-layer": "ne_10m_airports",
+        "type": "symbol",
+        "layout": {
+            "visibility": "none"
+        },
+        "filter": ["in", "abbrev", ""]
+    });
+
+    map.on('moveend', function() {
+        map.featuresIn({
+            layer: 'airport',
+            includeGeometry: true
+        }, function(err, features) {
+            if (err) return console.warn(err);
+            renderFeatures(features);
+            airports = features;
+        });
+    });
+
+    map.on('mousemove', function(e) {
+        map.featuresAt(e.point, {
+            radius: 10,
+            includeGeometry: true,
+            layer: 'airport'
+        }, function(err, features) {
+            // Change the cursor style as a UI indicator.
+            map.getCanvas().style.cursor = (!err && features.length) ? 'pointer' : '';
+
+            if (err || !features.length) {
+                popup.remove();
+                return;
+            }
+
+            var feature = features[0];
+
+            // Populate the popup and set its coordinates
+            // based on the feature found.
+            popup.setLngLat(feature.geometry.coordinates)
+                .setText(feature.properties.name + ' (' + feature.properties.abbrev + ')')
+                .addTo(map);
+        });
+    });
+
+    filter.addEventListener('keyup', function(e) {
+        var value = normalize(e.target.value);
+        var filterBy = ['in', 'abbrev'];
+
+        // Filter visible features that don't match the input value.
+        var features = airports.filter(function(feature) {
+            var name = normalize(feature.properties.name);
+            var code = normalize(feature.properties.abbrev);
+
+            // If there isnt a match on this feature, filter it out and add
+            // its name to the `filterBy` list.
+            if (name.indexOf(value) === -1 ||
+                code.indexOf(value) === -1) {
+                filterBy.push(feature.properties.abbrev);
+            }
+
+            return name.indexOf(value) > -1 || code.indexOf(value) > -1;
+        });
+
+        // Populate the sidebar with filtered results
+        renderFeatures(features);
+
+        console.log(filterBy);
+        // Apply the filtered layer style on features that dont match.
+        map.setFilter('airport-filtered', filterBy);
+    });
+
+    // Call render on the sidebar on initialization
+    // to populate the empty text message.
+    renderFeatures([]);
+});
+</script>
