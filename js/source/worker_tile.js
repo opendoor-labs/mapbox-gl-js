@@ -34,27 +34,15 @@ WorkerTile.prototype.parse = function(data, layers, actor, callback) {
     var sourceLayerId;
     var bucket;
 
-    var childLayers = {};
-    for (i = 0; i < layers.length; i++) {
-        layer = layers[i];
-        var key = layer.ref || layer.id;
-        childLayers[key] = childLayers[key] || [];
-        childLayers[key].push(layer);
-    }
+    var layerFamilies = createLayerFamilies(this, layers);
 
     // Map non-ref layers to buckets.
-    for (i = 0; i < layers.length; i++) {
-        layer = layers[i];
-
-        if (layer.source !== this.source) continue;
-        if (layer.ref) continue;
-        if (layer.minzoom && this.zoom < layer.minzoom) continue;
-        if (layer.maxzoom && this.zoom >= layer.maxzoom) continue;
-        if (layer.layout && layer.layout.visibility === 'none') continue;
+    for (var parentName in layerFamilies) {
+        layer = layers[parentName];
 
         bucket = Bucket.create({
             layer: layer,
-            childLayers: childLayers[layer.id],
+            childLayers: layerFamilies[parentName],
             zoom: this.zoom,
             overscaling: this.overscaling,
             collisionDebug: this.collisionDebug
@@ -243,4 +231,24 @@ function getTransferables(buckets) {
         }
     }
     return transferables;
+}
+
+function createLayerFamilies(tile, layers) {
+    var families = {};
+
+    for (var childId in layers) {
+        var child = layers[childId];
+        var parentId = child.ref || child.id;
+        var parent = layers[parentId];
+
+        if (parent.source !== tile.source) continue;
+        if (parent.minzoom && tile.zoom < parent.minzoom) continue;
+        if (parent.maxzoom && tile.zoom >= parent.maxzoom) continue;
+        if (parent.layout && parent.layout.visibility === 'none') continue;
+
+        families[parentId] = families[parentId] || [];
+        families[parentId].push(child);
+    }
+
+    return families;
 }
