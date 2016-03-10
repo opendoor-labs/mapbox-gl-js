@@ -68,13 +68,13 @@ Tile.prototype = {
      * @returns {undefined}
      * @private
      */
-    loadVectorData: function(data) {
+    loadVectorData: function(data, style) {
         this.loaded = true;
 
         // empty GeoJSON tile
         if (!data) return;
 
-        this.buckets = unserializeBuckets(data.buckets);
+        this.buckets = unserializeBuckets(data.buckets, style);
     },
 
     /**
@@ -89,7 +89,7 @@ Tile.prototype = {
     reloadSymbolData: function(data, painter) {
         if (this.isUnloaded) return;
 
-        var newBuckets = unserializeBuckets(data.buckets);
+        var newBuckets = unserializeBuckets(data.buckets, painter.style);
         for (var id in newBuckets) {
             var newBucket = newBuckets[id];
             var oldBucket = this.buckets[id];
@@ -151,10 +151,13 @@ Tile.prototype = {
     }
 };
 
-function unserializeBuckets(input) {
+function unserializeBuckets(input, style) {
     var output = {};
     for (var i = 0; i < input.length; i++) {
-        var bucket = Bucket.create(input[i]);
+        var bucket = Bucket.create(util.extend({
+            childLayers: input[i].childLayerIds.map(style.getLayer.bind(style)),
+            layer: style.getLayer(input[i].layerId)
+        }, input[i]));
         output[bucket.id] = bucket;
     }
     return output;

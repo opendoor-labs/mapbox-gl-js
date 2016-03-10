@@ -8,6 +8,7 @@ var WorkerTile = require('../../js/source/worker_tile');
 var ajax = require('../../js/util/ajax');
 var Coordinate = require('../../js/geo/coordinate');
 var Style = require('../../js/style/style');
+var StyleLayer = require('../../js/style/style_layer');
 var util = require('../../js/util/util');
 var Evented = require('../../js/util/evented');
 var config = require('../../js/util/config');
@@ -259,13 +260,7 @@ function preloadAssets(stylesheet, callback) {
 function runSample(stylesheet, getGlyphs, getIcons, getTile, callback) {
     var timeStart = performance.now();
 
-    var layers = {};
-    for (var i = 0; i < stylesheet.layers.length; i++) {
-        var layer = stylesheet.layers[i];
-        if (layer.type === 'fill' || layer.type === 'line' || layer.type === 'circle' || layer.type === 'symbol') {
-            layers[layer.id] = layer;
-        }
-    }
+    var layers = createLayers(stylesheet);
 
     util.asyncAll(coordinates, function(coordinate, eachCallback) {
         var url = 'https://a.tiles.mapbox.com/v4/mapbox.mapbox-terrain-v2,mapbox.mapbox-streets-v6/' + coordinate.zoom + '/' + coordinate.row + '/' + coordinate.column + '.vector.pbf?access_token=' + config.ACCESS_TOKEN;
@@ -317,4 +312,30 @@ function asyncTimesSeries(times, work, callback) {
     } else {
         callback();
     }
+}
+
+function createLayers(stylesheet) {
+    var layers = {};
+    var styleLayers = {};
+
+    // Filter layers and create an id -> layer map
+    for (var i = 0; i < stylesheet.layers.length; i++) {
+        var layer = stylesheet.layers[i];
+        if (layer.type === 'fill' || layer.type === 'line' || layer.type === 'circle' || layer.type === 'symbol') {
+            layers[layer.id] = layer;
+            if (!layer.ref) {
+                styleLayers[layer.id] = StyleLayer.create(layer);
+            }
+        }
+    }
+
+    // Create an instance of StyleLayer per layer
+    for (var id in layers) {
+        var layer = layers[id];
+        if (layer.ref) {
+            styleLayers[layer.id] = StyleLayer.create(layer, styleLayers[layer.ref]);
+        }
+    }
+
+    return styleLayers;
 }

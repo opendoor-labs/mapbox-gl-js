@@ -2,8 +2,9 @@
 
 var featureFilter = require('feature-filter');
 var Buffer = require('./buffer');
-var StyleLayer = require('../style/style_layer');
 var util = require('../util/util');
+var assert = require('assert');
+var StyleLayer = require('../style/style_layer');
 
 module.exports = Bucket;
 
@@ -77,10 +78,13 @@ function Bucket(options) {
     this.minZoom = this.layer.minzoom;
     this.maxZoom = this.layer.maxzoom;
 
-    // TODO make this call more efficient or unnecessary
-    this.createStyleLayers(options.style);
     this.attributes = createAttributes(this);
     this.attributeMap = createAttributeMap(this);
+
+    for (var key in this.childLayers) {
+        assert(this.childLayers[key] instanceof StyleLayer);
+    }
+    assert(this.layer instanceof StyleLayer);
 
     if (options.elementGroups) {
         this.elementGroups = options.elementGroups;
@@ -95,6 +99,7 @@ function Bucket(options) {
  * @private
  */
 Bucket.prototype.populateBuffers = function() {
+    this.recalculateStyleLayers();
     this.createBuffers();
 
     for (var i = 0; i < this.features.length; i++) {
@@ -255,37 +260,16 @@ Bucket.prototype.getBufferName = function(shaderName, type) {
 
 Bucket.prototype.serialize = function() {
     return {
-        layer: this.layer.serialize(),
+        layerId: this.layer.id,
         zoom: this.zoom,
         elementGroups: this.elementGroups,
         buffers: util.mapObject(this.buffers, function(buffer) {
             return buffer.serialize();
         }),
-        childLayers: this.childLayers.map(function(layer) {
-            return layer.serialize();
+        childLayerIds: this.childLayers.map(function(layer) {
+            return layer.id;
         })
     };
-};
-
-// TODO there will be race conditions when the layer passed here has changed
-// since it was used to construct the buffers
-Bucket.prototype.createStyleLayers = function(style) {
-    var that = this;
-    var refLayer = this.layer = create(this.layer);
-    this.childLayers = this.childLayers.map(create);
-
-    function create(layer) {
-        if (style) {
-            return style.getLayer(layer.id);
-        } else if (!(layer instanceof StyleLayer)) {
-            layer = StyleLayer.create(layer, refLayer);
-            layer.cascade({}, {transition: false});
-            layer.recalculate(that.zoom, { lastIntegerZoom: Infinity, lastIntegerZoomTime: 0, lastZoom: 0 });
-            return layer;
-        } else {
-            return layer;
-        }
-    }
 };
 
 // TODO use lazy evaluation to get rid of this call
@@ -297,6 +281,12 @@ Bucket.prototype.createFilter = function() {
 
 Bucket.prototype._premultiplyColor = util.premultiply;
 
+var FAKE_ZOOM_HISTORY = { lastIntegerZoom: Infinity, lastIntegerZoomTime: 0, lastZoom: 0 };
+Bucket.prototype.recalculateStyleLayers = function() {
+    for (var i = 0; i < this.childLayers.length; i++) {
+        this.childLayers[i].recalculate(this.zoom, FAKE_ZOOM_HISTORY);
+    }
+};
 
 var createVertexAddMethodCache = {};
 function createVertexAddMethod(bucket, interfaceName) {

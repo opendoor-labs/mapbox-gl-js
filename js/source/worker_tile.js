@@ -52,7 +52,7 @@ WorkerTile.prototype.parse = function(data, layers, actor, callback) {
         bucketsById[layer.id] = bucket;
 
         if (data.layers) { // vectortile
-            sourceLayerId = layer['source-layer'];
+            sourceLayerId = layer.sourceLayer;
             bucketsBySourceLayer[sourceLayerId] = bucketsBySourceLayer[sourceLayerId] || {};
             bucketsBySourceLayer[sourceLayerId][layer.id] = bucket;
         }
@@ -185,7 +185,7 @@ WorkerTile.prototype.parse = function(data, layers, actor, callback) {
 
         callback(null, {
             buckets: buckets.map(function(bucket) { return bucket.serialize(); }),
-            bucketStats: stats // TODO put this in a separate message?
+            bucketStats: stats // TODO put this in a separate message
         }, getTransferables(buckets));
     }
 };

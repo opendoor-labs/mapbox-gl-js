@@ -2,6 +2,7 @@
 
 var Actor = require('../util/actor');
 var WorkerTile = require('./worker_tile');
+var StyleLayer = require('../style/style_layer');
 var util = require('../util/util');
 var ajax = require('../util/ajax');
 var vt = require('vector-tile');
@@ -26,14 +27,33 @@ function Worker(self) {
 
 util.extend(Worker.prototype, {
     'set layers': function(layers) {
-        this.layers = {};
-        for (var i = 0; i < layers.length; i++) {
-            this.layers[layers[i].id] = layers[i];
-        }
+        this.layers = unserializeLayers(layers);
     },
 
     'update layers': function(layers) {
-        util.extend(this.layers, layers);
+        var that = this;
+        var id;
+
+        // Update ref parents
+        for (id in layers) {
+            var layer = layers[id];
+            if (layer.ref) updateLayer(layer);
+        }
+
+        // Update ref children
+        for (id in layers) {
+            var layer = layers[id];
+            if (!layer.ref) updateLayer(layers[id]);
+        }
+
+        function updateLayer(layer) {
+            if (that.layers[layer.id]) {
+                that.layers[layer.id].set(layer);
+            } else {
+                that.layers[layer.id] = StyleLayer.create(layer, that.layers[layer.ref]);
+            }
+            that.layers[layer.id].cascade({}, {transition: false});
+        }
     },
 
     'load tile': function(params, callback) {
@@ -166,3 +186,34 @@ util.extend(Worker.prototype, {
         }
     }
 });
+
+function unserializeLayers(layersArray) {
+    var layersMap = {};
+    var styleLayersMap = {};
+    var layer;
+    var styleLayer;
+
+    // Filter layers and create an id -> layer map
+    for (var i = 0; i < layersArray.length; i++) {
+        layer = layersArray[i];
+        if (layer.type === 'fill' || layer.type === 'line' || layer.type === 'circle' || layer.type === 'symbol') {
+            if (layer.ref) {
+                layersMap[layer.id] = layer;
+            } else {
+                styleLayer = StyleLayer.create(layer);
+                styleLayer.cascade({}, {transition: false});
+                styleLayersMap[layer.id] = styleLayer;
+            }
+        }
+    }
+
+    // Create an instance of StyleLayer per layer
+    for (var id in layersMap) {
+        layer = layersMap[id];
+        styleLayer = StyleLayer.create(layer, styleLayersMap[layer.ref]);
+        styleLayer.cascade({}, {transition: false});
+        styleLayersMap[layer.id] = styleLayer;
+    }
+
+    return styleLayersMap;
+}
