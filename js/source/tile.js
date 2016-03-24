@@ -2,7 +2,7 @@
 
 var util = require('../util/util');
 var Bucket = require('../data/bucket');
-var FeatureTree = require('../data/feature_tree');
+var FeatureIndex = require('../data/feature_index');
 var vt = require('vector-tile');
 var Protobuf = require('pbf');
 var GeoJSONFeature = require('../util/vectortile_to_geojson');
@@ -84,7 +84,7 @@ Tile.prototype = {
 
         this.collisionBoxArray = new CollisionBoxArray(data.collisionBoxArray);
         this.collisionTile = new CollisionTile(data.collisionTile, this.collisionBoxArray);
-        this.featureTree = new FeatureTree(data.featureTree, data.rawTileData, this.collisionTile);
+        this.featureIndex = new FeatureIndex(data.featureIndex, data.rawTileData, this.collisionTile);
         this.rawTileData = data.rawTileData;
         this.buckets = unserializeBuckets(data.buckets);
     },
@@ -101,7 +101,7 @@ Tile.prototype = {
         if (this.isUnloaded) return;
 
         this.collisionTile = new CollisionTile(data.collisionTile, this.collisionBoxArray);
-        this.featureTree.setCollisionTile(this.collisionTile);
+        this.featureIndex.setCollisionTile(this.collisionTile);
 
         // Destroy and delete existing symbol buckets
         for (var id in this.buckets) {
