@@ -19,6 +19,7 @@ function WorkerTile(params) {
     this.pitch = params.pitch;
     this.showCollisionBoxes = params.showCollisionBoxes;
 }
+var COLOR_OFFSET = 10000000000;
 
 WorkerTile.prototype.parse = function(data, layers, actor, rawTileData, callback) {
 
@@ -59,11 +60,6 @@ WorkerTile.prototype.parse = function(data, layers, actor, rawTileData, callback
             collisionBoxArray: this.collisionBoxArray,
             sourceLayerIndex: sourceLayerCoder.encode(layer['source-layer'] || '_geojsonTileLayer')
         });
-
-        // PATCH BEGINS HERE
-        bucket.rawFilter = bucket.layer.filter;
-        // PATCH ENDS HERE
-
         bucket.createFilter();
 
         bucketsById[layer.id] = bucket;
@@ -97,16 +93,20 @@ WorkerTile.prototype.parse = function(data, layers, actor, rawTileData, callback
 
     // PATCH BEGINS HERE
 
-    function arrayFindGreater(layer, time) {
+    function featuresFind(layer, color, time) {
         // Finds the index of the first point with close_date greater than the given time.
         // See: http://stackoverflow.com/questions/6553970/find-the-first-element-in-an-array-that-is-greater-than-the-target
+        var find = time + color * COLOR_OFFSET;
         var low = 0;
         var high = layer.length;
-        var mid = null;
+        var mid;
+        var properties;
 
         while (low !== high) {
             mid = Math.floor((low + high) / 2);
-            if (layer.feature(mid).properties.d - time < 0) {
+            properties = layer.feature(mid).properties;
+
+            if ((properties.d + properties.c * COLOR_OFFSET) - find < 0) {
                 low = mid + 1;
             } else {
                 high = mid;
@@ -116,11 +116,11 @@ WorkerTile.prototype.parse = function(data, layers, actor, rawTileData, callback
         return low === layer.length ? null : low;
     }
 
-    function arraySlice(layer, start, end) {
-        var n = end - start;
+    function featuresSlice(layer, begin, end) {
+        var n = end - begin;
         var slice = new Array(n);
         while (n--) {
-            slice[n] = layer.feature(n + start);
+            slice[n] = layer.feature(n + begin);
         }
         return slice;
     }
@@ -140,32 +140,34 @@ WorkerTile.prototype.parse = function(data, layers, actor, rawTileData, callback
     }
 
     function sortLayerIntoBucketsBinarySearch(layer, buckets) {
-        var filter;
-        var startTime;
-        var endTime;
-
         for (var id in buckets) {
-            filter = buckets[id].rawFilter;
-            break;
-        }
+            var filterValues = getFilters(buckets[id].layer.filter);
 
-        for (var i = 1; i < filter.length; i++) {
-            var filterSpec = filter[i];
-            if (filterSpec[1] !== 'd') continue;
-            if (filterSpec[0].charAt(0) === '>') {
-                startTime = filterSpec[2];
-            } else {
-                endTime = filterSpec[2];
-            }
-        }
+            var startIdx = featuresFind(layer, filterValues.colorIdx, filterValues.startTime);
+            var endIdx = featuresFind(layer, filterValues.colorIdx, filterValues.endTime);
+            var featureSlice = featuresSlice(layer, startIdx, endIdx);
 
-        var startIdx = arrayFindGreater(layer, startTime);
-        var endIdx = arrayFindGreater(layer, endTime);
-        var featureSlice = arraySlice(layer, startIdx, endIdx);
-        for (var id in buckets) {
             buckets[id].features = featureSlice;
         }
     }
+
+    function getFilters(filter) {
+        var values = {};
+        for (var i = 1; i < filter.length; i++) {
+            var filterSpec = filter[i];
+            if (filterSpec[1] === 'c') {
+                values.colorIdx = filterSpec[2];
+            } else if (filterSpec[1] === 'd') {
+                if (filterSpec[0].charAt(0) === '>') {
+                    values.startTime = filterSpec[2];
+                } else {
+                    values.endTime = filterSpec[2];
+                }
+            }
+        }
+        return values;
+    }
+
 
     // PATCH ENDS HERE
 
