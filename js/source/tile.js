@@ -58,10 +58,11 @@ Tile.prototype = {
      * @returns {Object} position
      * @private
      */
-    positionAt: function(coord) {
+    positionAt: function(coord, w) {
+        if (w === undefined) w = 0;
         var zoomedCoord = coord.zoomTo(Math.min(this.coord.z, this.sourceMaxZoom));
         return {
-            x: (zoomedCoord.column - this.coord.x) * Bucket.EXTENT,
+            x: (zoomedCoord.column - (this.coord.x + w * Math.pow(2, this.coord.z))) * Bucket.EXTENT,
             y: (zoomedCoord.row - this.coord.y) * Bucket.EXTENT
         };
     },

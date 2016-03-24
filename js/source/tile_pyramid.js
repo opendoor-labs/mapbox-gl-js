@@ -386,7 +386,7 @@ TilePyramid.prototype = {
      * @private
      */
     tilesIn: function(queryGeometry) {
-        var result = [];
+        var tileResults = {};
         var ids = this.orderedIDs();
 
         var minX = Infinity;
@@ -405,10 +405,11 @@ TilePyramid.prototype = {
 
         for (var i = 0; i < ids.length; i++) {
             var tile = this._tiles[ids[i]];
+            var coord = TileCoord.fromID(ids[i]);
 
             var tileSpaceBounds = [
-                tile.positionAt(new Coordinate(minX, minY, z)),
-                tile.positionAt(new Coordinate(maxX, maxY, z))
+                tile.positionAt(new Coordinate(minX, minY, z), coord.w),
+                tile.positionAt(new Coordinate(maxX, maxY, z), coord.w)
             ];
 
             if (tileSpaceBounds[0].x < EXTENT && tileSpaceBounds[0].y < EXTENT &&
@@ -416,18 +417,28 @@ TilePyramid.prototype = {
 
                 var tileSpaceQueryGeometry = [];
                 for (var j = 0; j < queryGeometry.length; j++) {
-                    tileSpaceQueryGeometry.push(tile.positionAt(queryGeometry[j]));
+                    tileSpaceQueryGeometry.push(tile.positionAt(queryGeometry[j], coord.w));
                 }
 
-                result.push({
-                    tile: tile,
-                    queryGeometry: tileSpaceQueryGeometry,
-                    scale: Math.pow(2, this.transform.zoom - tile.coord.z)
-                });
+                var tileResult = tileResults[tile.coord.id];
+                if (tileResult === undefined) {
+                    tileResult = tileResults[tile.coord.id] = {
+                        tile: tile,
+                        queryGeometry: [],
+                        scale: Math.pow(2, this.transform.zoom - tile.coord.z)
+                    };
+                }
+
+                // Wrapped tiles share one tileResult object but can have multiple queryGeometry parts
+                tileResult.queryGeometry.push(tileSpaceQueryGeometry);
             }
         }
 
-        return result;
+        var results = [];
+        for (var t in tileResults) {
+            results.push(tileResults[t]);
+        }
+        return results;
     }
 };
 
