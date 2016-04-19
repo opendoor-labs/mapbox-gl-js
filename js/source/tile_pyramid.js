@@ -65,11 +65,25 @@ TilePyramid.prototype = {
      * @private
      */
     orderedIDs: function() {
-        return Object.keys(this._tiles).map(Number).sort(compareKeyZoom);
+        // return Object.keys(this._tiles).map(Number).sort(compareKeyZoom);
+        var ids = [];
+        for (var id in this._tiles) {
+            ids.push(~~id);
+        }
+        return ids.sort(compareKeyZoom);
     },
 
     renderedIDs: function() {
-        return this.orderedIDs().filter(this._filterRendered);
+        var ordered = this.orderedIDs();
+        var ids = [];
+        for (var i = 0, n = ordered.length; i < n; i++) {
+            var id = ordered[i];
+            if (this._tiles[id].loaded && !this._coveredTiles[id]) {
+                ids.push(id);
+            }
+        }
+        return ids;
+        // return this.orderedIDs().filter(this._filterRendered);
     },
 
     _filterRendered: function(id) {
@@ -129,7 +143,8 @@ TilePyramid.prototype = {
 
         var tr = transform,
             tileCenter = tr.locationCoordinate(tr.center)._zoomTo(z),
-            centerPoint = new Point(tileCenter.column - 0.5, tileCenter.row - 0.5);
+            centerX = tileCenter.column - 0.5,
+            centerY = tileCenter.row - 0.5;
 
         return TileCoord.cover(z, [
             tr.pointCoordinate(new Point(0, 0))._zoomTo(z),
@@ -137,7 +152,15 @@ TilePyramid.prototype = {
             tr.pointCoordinate(new Point(tr.width, tr.height))._zoomTo(z),
             tr.pointCoordinate(new Point(0, tr.height))._zoomTo(z)
         ], this.reparseOverscaled ? actualZ : z).sort(function(a, b) {
-            return centerPoint.dist(a) - centerPoint.dist(b);
+            // Changing this due to chrome tools flagging:
+            // not optimized: reference to a variable which requires dynamic lookup
+            // We also don't need euclidean distance, squared distance is fine for comparison purposes.
+            // Old: return centerPoint.dist(a) - centerPoint.dist(b);
+            var dxa = a.x - centerX,
+                dya = a.y - centerY,
+                dxb = b.x - centerX,
+                dyb = b.y - centerY;
+            return (dxa * dxa + dya * dya) - (dxb * dxb + dyb * dyb);
         });
     },
 

@@ -112,14 +112,14 @@ module.exports._createProgram = function(name, macros) {
 
 module.exports._createProgramCached = function(name, macros) {
     this.cache = this.cache || {};
-    var key = JSON.stringify({name: name, macros: macros});
+    var key = macros ? JSON.stringify({name: name, macros: macros}) : name;
     if (!this.cache[key]) {
         this.cache[key] = this._createProgram(name, macros);
     }
     return this.cache[key];
 };
 
-module.exports.useProgram = function (nextProgramName, macros) {
+module.exports.useProgram = function(nextProgramName, macros) {
     var gl = this.gl;
 
     var nextProgram = this._createProgramCached(nextProgramName, macros);

@@ -835,16 +835,20 @@ util.extend(Map.prototype, /** @lends Map.prototype */{
     _render: function() {
         if (this.style && this._styleDirty) {
             this._styleDirty = false;
+            // 23.8%
             this.style.update(this._classes, this._classOptions);
             this._classOptions = null;
+            // 4.2%
             this.style._recalculate(this.transform.zoom);
         }
 
         if (this.style && this._sourcesDirty) {
             this._sourcesDirty = false;
+            // 21.9%
             this.style._updateSources(this.transform);
         }
 
+        // 50.1%
         this.painter.render(this.style, {
             debug: this.showTileBoundaries,
             vertices: this.vertices,

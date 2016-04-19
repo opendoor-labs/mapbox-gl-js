@@ -85,7 +85,6 @@ StyleLayer.prototype = util.inherit(Evented, {
     },
 
     setLayoutProperty: function(name, value) {
-
         if (value == null) {
             delete this._layoutDeclarations[name];
         } else {

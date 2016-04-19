@@ -17,6 +17,14 @@ function Coordinate(column, row, zoom) {
     this.zoom = zoom;
 }
 
+Coordinate.fromTileCoord = function fromTileCoord(tc) {
+    var zoom = tc.z;
+    var tileScale = Math.exp(zoom * Math.LN2);
+    var row = tc.y;
+    var column = tc.x + tileScale * tc.w;
+    return new Coordinate(column, row, zoom);
+};
+
 Coordinate.prototype = {
 
     /**

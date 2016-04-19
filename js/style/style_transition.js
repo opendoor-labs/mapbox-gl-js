@@ -64,7 +64,6 @@ StyleTransition.prototype.calculate = function(globalProperties, featureProperti
     }
 
     return value;
-
 };
 
 function interpZoomTransitioned(from, to, t) {

@@ -209,6 +209,7 @@ Style.prototype = util.inherit(Evented, {
         }
     },
 
+    // 4.2%
     _recalculate: function(z) {
         for (var sourceId in this.sources)
             this.sources[sourceId].used = false;
@@ -269,6 +270,7 @@ Style.prototype = util.inherit(Evented, {
      * Apply queued style updates in a batch
      * @private
      */
+    // 23.8%
     update: function(classes, options) {
         if (!this._updates.changed) return this;
 
@@ -664,6 +666,7 @@ Style.prototype = util.inherit(Evented, {
         this.sources[id].reload();
     },
 
+    // 21.9%
     _updateSources: function(transform) {
         for (var id in this.sources) {
             this.sources[id].update(transform);

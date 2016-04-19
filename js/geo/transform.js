@@ -39,6 +39,8 @@ function Transform(minZoom, maxZoom) {
     this._altitude = 1.5;
     this._pitch = 0;
     this._unmodified = true;
+
+    this.float64Array = new Float64Array(16);
 }
 
 Transform.prototype = {
@@ -141,7 +143,12 @@ Transform.prototype = {
 
     get unmodified() { return this._unmodified; },
 
-    zoomScale: function(zoom) { return Math.pow(2, zoom); },
+    zoomScale: function(zoom) {
+        // Old: return Math.pow(2, zoom);
+        // 2 ** x = exp(x * ln(2))
+        // We can't simple have 1 << x since we probably need to support floating zooms
+        return Math.exp(zoom * Math.LN2);
+    },
     scaleZoom: function(scale) { return Math.log(scale) / Math.LN2; },
 
     project: function(lnglat, worldSize) {
@@ -307,7 +314,7 @@ Transform.prototype = {
     },
 
     coordinatePointMatrix: function(z) {
-        var proj = mat4.copy(new Float64Array(16), this.projMatrix);
+        var proj = mat4.copy(this.float64Array, this.projMatrix);
         var scale = this.worldSize / this.zoomScale(z);
         mat4.scale(proj, proj, [scale, scale, 1]);
         mat4.multiply(proj, this.getPixelMatrix(), proj);
@@ -333,20 +340,21 @@ Transform.prototype = {
      * @private
      */
     calculatePosMatrix: function(coord, maxZoom) {
-        if (coord instanceof TileCoord) coord = coord.toCoordinate();
-        if (maxZoom === undefined) maxZoom = Infinity;
+        var c = coord instanceof TileCoord ? coord.toCoordinate() : coord;
+        // if (coord instanceof TileCoord) coord = coord.toCoordinate();
+        // if (maxZoom === undefined) maxZoom = Infinity;
 
         // Initialize model-view matrix that converts from the tile coordinates to screen coordinates.
 
         // if z > maxzoom then the tile is actually a overscaled maxzoom tile,
         // so calculate the matrix the maxzoom tile would use.
-        var z = Math.min(coord.zoom, maxZoom);
+        var z = Math.min(c.zoom, maxZoom === undefined ? Infinity : maxZoom);
 
-        var scale = this.worldSize / Math.pow(2, z);
-        var posMatrix = new Float64Array(16);
+        var scale = this.worldSize / Math.exp(z * Math.LN2);
+        var posMatrix = this.float64Array;
 
         mat4.identity(posMatrix);
-        mat4.translate(posMatrix, posMatrix, [coord.column * scale, coord.row * scale, 0]);
+        mat4.translate(posMatrix, posMatrix, [c.column * scale, c.row * scale, 0]);
         mat4.scale(posMatrix, posMatrix, [ scale / EXTENT, scale / EXTENT, 1 ]);
         mat4.multiply(posMatrix, this.projMatrix, posMatrix);
 

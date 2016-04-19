@@ -6,11 +6,12 @@ var Coordinate = require('../geo/coordinate');
 module.exports = TileCoord;
 
 function TileCoord(z, x, y, w) {
-    assert(!isNaN(z) && z >= 0 && z % 1 === 0);
-    assert(!isNaN(x) && x >= 0 && x % 1 === 0);
-    assert(!isNaN(y) && y >= 0 && y % 1 === 0);
+    // Use (x != x) as faster isNaN check
+    assert(!(z != z) && z >= 0 && z % 1 === 0); // eslint-disable-line
+    assert(!(x != x) && x >= 0 && x % 1 === 0); // eslint-disable-line
+    assert(!(y != y) && y >= 0 && y % 1 === 0); // eslint-disable-line
 
-    if (isNaN(w)) w = 0;
+    if (w != w) w = 0; // eslint-disable-line
 
     this.z = +z;
     this.x = +x;
@@ -32,21 +33,25 @@ TileCoord.prototype.toString = function() {
 };
 
 TileCoord.prototype.toCoordinate = function() {
-    var zoom = this.z;
-    var tileScale = Math.pow(2, zoom);
-    var row = this.y;
-    var column = this.x + tileScale * this.w;
+    var zoom = +this.z;
+    var tileScale = Math.exp(zoom * Math.LN2);
+    var row = +this.y;
+    var column = +this.x + tileScale * +this.w;
     return new Coordinate(column, row, zoom);
 };
 
 // Parse a packed integer id into a TileCoord object
 TileCoord.fromID = function(id) {
-    var z = id % 32, dim = 1 << z;
-    var xy = ((id - z) / 32);
-    var x = xy % dim, y = ((xy - x) / dim) % dim;
-    var w = Math.floor(xy / (dim * dim));
+    var z = id % 32,
+        dim = 1 << z,
+        xy = ((id - z) / 32),
+        x = xy % dim,
+        y = ((xy - x) / dim) % dim,
+        w = Math.floor(xy / (dim * dim));
+
     if (w % 2 !== 0) w = w * -1 - 1;
     w /= 2;
+
     return new TileCoord(z, x, y, w);
 };
 
@@ -109,15 +114,22 @@ function edge(a, b) {
     };
 }
 
+function min2(a, b) { return a < b ? a : b; }
+function max2(a, b) { return a > b ? a : b; }
+function floor(n) { return n | 0; }
+function ceil(n) { return (n | 0) + (n !== (n | 0)); }
+
 function scanSpans(e0, e1, ymin, ymax, scanLine) {
-    var y0 = Math.max(ymin, Math.floor(e1.y0));
-    var y1 = Math.min(ymax, Math.ceil(e1.y1));
+    var y0 = max2(ymin, floor(e1.y0));
+    var y1 = min2(ymax, ceil(e1.y1));
 
     // sort edges by x-coordinate
     if ((e0.x0 === e1.x0 && e0.y0 === e1.y0) ?
             (e0.x0 + e1.dy / e0.dy * e0.dx < e1.x1) :
             (e0.x1 - e1.dy / e0.dy * e0.dx < e1.x0)) {
-        var t = e0; e0 = e1; e1 = t;
+        var t = e0;
+        e0 = e1;
+        e1 = t;
     }
 
     // scan lines!
@@ -126,9 +138,9 @@ function scanSpans(e0, e1, ymin, ymax, scanLine) {
     var d0 = e0.dx > 0; // use y + 1 to compute x0
     var d1 = e1.dx < 0; // use y + 1 to compute x1
     for (var y = y0; y < y1; y++) {
-        var x0 = m0 * Math.max(0, Math.min(e0.dy, y + d0 - e0.y0)) + e0.x0;
-        var x1 = m1 * Math.max(0, Math.min(e1.dy, y + d1 - e1.y0)) + e1.x0;
-        scanLine(Math.floor(x1), Math.ceil(x0), y);
+        var x0 = m0 * max2(0, min2(e0.dy, y + d0 - e0.y0)) + e0.x0;
+        var x1 = m1 * max2(0, min2(e1.dy, y + d1 - e1.y0)) + e1.x0;
+        scanLine(floor(x1), ceil(x0), y);
     }
 }
 
@@ -154,11 +166,10 @@ TileCoord.cover = function(z, bounds, actualZ) {
     var t = {};
 
     function scanLine(x0, x1, y) {
-        var x, wx, coord;
+        var x, coord;
         if (y >= 0 && y <= tiles) {
             for (x = x0; x < x1; x++) {
-                wx = (x % tiles + tiles) % tiles;
-                coord = new TileCoord(actualZ, wx, y, Math.floor(x / tiles));
+                coord = new TileCoord(actualZ, x % tiles, y, floor(x / tiles));
                 t[coord.id] = coord;
             }
         }
