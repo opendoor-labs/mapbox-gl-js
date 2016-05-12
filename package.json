@@ -1,12 +1,12 @@
 {
-  "name": "mapbox-gl",
+  "name": "mapbox-gl-opendoor",
   "description": "A WebGL interactive maps library",
   "version": "0.17.0",
   "main": "js/mapbox-gl.js",
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
-    "url": "git://github.com/mapbox/mapbox-gl-js.git"
+    "url": "git://github.com/opendoor-labs/mapbox-gl-js.git"
   },
   "dependencies": {
     "brfs": "^1.4.0",
